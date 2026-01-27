@@ -1,0 +1,402 @@
+basePath: /api
+definitions:
+  controllers.UserSwagger:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      email:
+        type: string
+      has_allow_notification:
+        type: boolean
+      id:
+        type: integer
+      name:
+        type: string
+      notification_token:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.ChangePasswordRequest:
+    properties:
+      current_password:
+        minLength: 6
+        type: string
+      new_password:
+        minLength: 6
+        type: string
+      new_password_confirmation:
+        minLength: 6
+        type: string
+    required:
+    - current_password
+    - new_password
+    - new_password_confirmation
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  dto.UpdateProfileRequest:
+    properties:
+      email:
+        type: string
+      name:
+        minLength: 3
+        type: string
+    required:
+    - email
+    - name
+    type: object
+  dto.ValidateTokenResponse:
+    properties:
+      user:
+        $ref: '#/definitions/dto.ValidateTokenUserResponse'
+    type: object
+  dto.ValidateTokenUserResponse:
+    properties:
+      code:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  utils.Meta:
+    properties:
+      current_page:
+        type: integer
+      has_more_pages:
+        type: boolean
+      items_on_page:
+        type: integer
+      per_page:
+        type: integer
+      total_pages:
+        type: integer
+      total_records:
+        type: integer
+    type: object
+  utils.PaginatedResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/utils.Meta'
+      success:
+        default: true
+        type: boolean
+    type: object
+  utils.Response:
+    properties:
+      data: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  utils.SimpleErrorResponse:
+    properties:
+      message:
+        type: string
+      success:
+        default: false
+        type: boolean
+    type: object
+  utils.SimpleResponse:
+    properties:
+      message:
+        type: string
+      success:
+        default: true
+        type: boolean
+    type: object
+  utils.UnauthorizedResponse:
+    properties:
+      message:
+        default: 'Unauthorized: reason...'
+        type: string
+      success:
+        default: false
+        type: boolean
+    type: object
+  utils.ValidationErrorResponse:
+    properties:
+      errors:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      message:
+        type: string
+      success:
+        default: false
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@novaardiansyah.id
+    name: API Support
+    url: https://novaardiansyah.id
+  description: This is an official Simple POS API documentation.
+  license:
+    name: MIT License
+    url: https://github.com/novaardiansyah/simple-pos-api/blob/main/LICENSE
+  termsOfService: https://novaardiansyah.id/live/nova-app/terms-of-service
+  title: Simple POS API
+  version: "1.0"
+paths:
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change user password with current password and new password
+      parameters:
+      - description: Change password
+        in: body
+        name: change-password
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LoginResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.UnauthorizedResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.ValidationErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change user password
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with email and password to receive a personal access token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LoginResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.UnauthorizedResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.ValidationErrorResponse'
+      summary: Authenticate a user
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user and revoke current access token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.SimpleResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.UnauthorizedResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - auth
+  /auth/profile:
+    put:
+      consumes:
+      - application/json
+      description: Update user profile with name and email
+      parameters:
+      - description: Update profile
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.SimpleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.SimpleErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.UnauthorizedResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.ValidationErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - auth
+  /auth/validate-token:
+    get:
+      consumes:
+      - application/json
+      description: Validate the personal access token and return user information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ValidateTokenResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.UnauthorizedResponse'
+      security:
+      - BearerAuth: []
+      summary: Validate authentication token
+      tags:
+      - auth
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: Get a paginated list of users
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 15
+        description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/controllers.UserSwagger'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - users
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controllers.UserSwagger'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: Get user details
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: Enter the token with the `Bearer ` prefix, e.g. "Bearer abcde12345"
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
