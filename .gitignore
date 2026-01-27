@@ -1,0 +1,47 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+runner-app
+runner-app.exe
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Environment variables
+.env
+.env.production*
+.env.local
+_env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agent/
+.antigravity/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+logs/golang-error.log
+logs/golang.log
+
+# ! Ignore images
+public/images/*/*
+!public/images/*/.gitkeep
