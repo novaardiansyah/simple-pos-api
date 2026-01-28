@@ -110,50 +110,7 @@ func (ctrl *AuthController) ValidateToken(c *fiber.Ctx) error {
 // @Failure 422 {object} utils.ValidationErrorResponse
 // @Router /auth/change-password [post]
 func (ctrl *AuthController) ChangePassword(c *fiber.Ctx) error {
-	userId := c.Locals("user_id").(uint)
-
-	user, err := ctrl.UserRepo.FindByID(userId)
-
-	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: User not found")
-	}
-
-	data := make(map[string]interface{})
-
-	rules := govalidator.MapData{
-		"current_password":          []string{"required", "min:6"},
-		"new_password":              []string{"required", "min:6"},
-		"new_password_confirmation": []string{"required", "min:6"},
-	}
-
-	errs := utils.ValidateJSON(c, &data, rules)
-	if errs != nil {
-		return utils.ValidationError(c, errs)
-	}
-
-	if data["new_password"] != data["new_password_confirmation"] {
-		return utils.ValidationError(c, map[string][]string{
-			"new_password": {"Password confirmation does not match"},
-		})
-	}
-
-	newToken, refreshToken, err := ctrl.AuthService.ChangePassword(
-		user,
-		data["current_password"].(string),
-		data["new_password"].(string),
-	)
-
-	if err != nil {
-		if err.Error() == "current_password_incorrect" {
-			return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Your current password is incorrect")
-		}
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update password")
-	}
-
-	return utils.SuccessResponse(c, "Password changed successfully", dto.LoginResponse{
-		Token:        newToken,
-		RefreshToken: refreshToken,
-	})
+	return ctrl.AuthService.ChangePassword(c)
 }
 
 // UpdateProfile godoc

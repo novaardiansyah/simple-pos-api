@@ -33,7 +33,7 @@ import (
 
 type AuthService interface {
 	Login(c *fiber.Ctx) error
-	ChangePassword(user *models.User, currentPassword, newPassword string) (string, string, error)
+	ChangePassword(c *fiber.Ctx) error
 	UpdateProfile(user *models.User, name, email string) error
 }
 
@@ -82,21 +82,57 @@ func (s *authService) Login(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshTokenPlain,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false,
+		Path:     "/api/auth/refresh",
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
+
 	return utils.SuccessResponse(c, "Login successful", dto.LoginResponse{
-		Token:        fullToken,
-		RefreshToken: refreshTokenPlain,
+		Token: fullToken,
 	})
 }
 
-func (s *authService) ChangePassword(user *models.User, currentPassword, newPassword string) (string, string, error) {
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword))
+func (s *authService) ChangePassword(c *fiber.Ctx) error {
+	userId := c.Locals("user_id").(uint)
+
+	user, err := s.UserRepo.FindByID(userId)
+
 	if err != nil {
-		return "", "", errors.New("current_password_incorrect")
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: User not found")
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
+	data := make(map[string]interface{})
+
+	rules := govalidator.MapData{
+		"current_password":          []string{"required", "min:6"},
+		"new_password":              []string{"required", "min:6"},
+		"new_password_confirmation": []string{"required", "min:6"},
+	}
+
+	errs := utils.ValidateJSON(c, &data, rules)
+	if errs != nil {
+		return utils.ValidationError(c, errs)
+	}
+
+	if data["new_password"] != data["new_password_confirmation"] {
+		return utils.ValidationError(c, map[string][]string{
+			"new_password": {"Password confirmation does not match"},
+		})
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data["current_password"].(string)))
 	if err != nil {
-		return "", "", err
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(data["new_password"].(string)), 12)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate password")
 	}
 
 	hashedPassword := strings.Replace(string(hashed), "$2a$", "$2y$", 1)
@@ -104,17 +140,29 @@ func (s *authService) ChangePassword(user *models.User, currentPassword, newPass
 
 	refreshToken, refreshTokenPlain, err := s.generateRefreshToken(user)
 	if err != nil {
-		return "", "", errors.New("failed_to_generate_refresh_token")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate refresh token")
 	}
 
 	s.TokenRepo.DeleteByUserID(user.ID)
 	_, fullToken, err := s.generateAuthToken(user, refreshToken)
 
 	if err != nil {
-		return "", "", err
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
-	return fullToken, refreshTokenPlain, nil
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshTokenPlain,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false,
+		Path:     "/api/auth/refresh",
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
+
+	return utils.SuccessResponse(c, "Password changed successfully", dto.LoginResponse{
+		Token: fullToken,
+	})
 }
 
 func (s *authService) UpdateProfile(user *models.User, name, email string) error {
