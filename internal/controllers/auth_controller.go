@@ -137,7 +137,7 @@ func (ctrl *AuthController) ChangePassword(c *fiber.Ctx) error {
 		})
 	}
 
-	newToken, err := ctrl.AuthService.ChangePassword(
+	newToken, refreshToken, err := ctrl.AuthService.ChangePassword(
 		user,
 		data["current_password"].(string),
 		data["new_password"].(string),
@@ -151,7 +151,8 @@ func (ctrl *AuthController) ChangePassword(c *fiber.Ctx) error {
 	}
 
 	return utils.SuccessResponse(c, "Password changed successfully", dto.LoginResponse{
-		Token: newToken,
+		Token:        newToken,
+		RefreshToken: refreshToken,
 	})
 }
 

@@ -33,7 +33,7 @@ import (
 
 type AuthService interface {
 	Login(c *fiber.Ctx) error
-	ChangePassword(user *models.User, currentPassword, newPassword string) (string, error)
+	ChangePassword(user *models.User, currentPassword, newPassword string) (string, string, error)
 	UpdateProfile(user *models.User, name, email string) error
 }
 
@@ -72,38 +72,49 @@ func (s *authService) Login(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
 	}
 
-	token, err := s.generateAuthToken(user, 7)
+	refreshToken, refreshTokenPlain, err := s.generateRefreshToken(user)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate refresh token")
+	}
+
+	_, fullToken, err := s.generateAuthToken(user, refreshToken)
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
 	return utils.SuccessResponse(c, "Login successful", dto.LoginResponse{
-		Token: token,
+		Token:        fullToken,
+		RefreshToken: refreshTokenPlain,
 	})
 }
 
-func (s *authService) ChangePassword(user *models.User, currentPassword, newPassword string) (string, error) {
+func (s *authService) ChangePassword(user *models.User, currentPassword, newPassword string) (string, string, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword))
 	if err != nil {
-		return "", errors.New("current_password_incorrect")
+		return "", "", errors.New("current_password_incorrect")
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	hashedPassword := strings.Replace(string(hashed), "$2a$", "$2y$", 1)
 	s.UserRepo.UpdatePassword(user.ID, hashedPassword)
 
-	s.TokenRepo.DeleteByUserID(user.ID)
-	newToken, err := s.generateAuthToken(user, 7)
-
+	refreshToken, refreshTokenPlain, err := s.generateRefreshToken(user)
 	if err != nil {
-		return "", err
+		return "", "", errors.New("failed_to_generate_refresh_token")
 	}
 
-	return newToken, nil
+	s.TokenRepo.DeleteByUserID(user.ID)
+	_, fullToken, err := s.generateAuthToken(user, refreshToken)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return fullToken, refreshTokenPlain, nil
 }
 
 func (s *authService) UpdateProfile(user *models.User, name, email string) error {
@@ -129,7 +140,7 @@ func (s *authService) UpdateProfile(user *models.User, name, email string) error
 	return nil
 }
 
-func (s *authService) generateAuthToken(user *models.User, expireDays int) (string, error) {
+func (s *authService) generateRefreshToken(user *models.User) (*models.PersonalAccessToken, string, error) {
 	length := 40
 	bytes := make([]byte, length)
 	rand.Read(bytes)
@@ -138,7 +149,38 @@ func (s *authService) generateAuthToken(user *models.User, expireDays int) (stri
 	hash := sha256.Sum256([]byte(plainToken))
 	hashedToken := hex.EncodeToString(hash[:])
 
-	expiration := time.Now().AddDate(0, 0, expireDays)
+	expiration := time.Now().AddDate(0, 0, 7)
+
+	token := models.PersonalAccessToken{
+		TokenableType: "App\\Models\\User",
+		TokenableID:   user.ID,
+		Name:          "refresh_token",
+		Token:         hashedToken,
+		Abilities:     "[\"*\"]",
+		ExpiresAt:     &expiration,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := s.TokenRepo.Create(&token); err != nil {
+		return nil, "", errors.New("token_creation_failed")
+	}
+
+	fullToken := fmt.Sprintf("%d|%s", token.ID, plainToken)
+
+	return &token, fullToken, nil
+}
+
+func (s *authService) generateAuthToken(user *models.User, refreshToken *models.PersonalAccessToken) (*models.PersonalAccessToken, string, error) {
+	length := 40
+	bytes := make([]byte, length)
+	rand.Read(bytes)
+
+	plainToken := hex.EncodeToString(bytes)[:length]
+	hash := sha256.Sum256([]byte(plainToken))
+	hashedToken := hex.EncodeToString(hash[:])
+
+	expiration := time.Now().Add(time.Hour)
 
 	token := models.PersonalAccessToken{
 		TokenableType: "App\\Models\\User",
@@ -149,13 +191,14 @@ func (s *authService) generateAuthToken(user *models.User, expireDays int) (stri
 		ExpiresAt:     &expiration,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
+		ParentID:      refreshToken.ID,
 	}
 
 	if err := s.TokenRepo.Create(&token); err != nil {
-		return "", errors.New("token_creation_failed")
+		return nil, "", errors.New("token_creation_failed")
 	}
 
 	fullToken := fmt.Sprintf("%d|%s", token.ID, plainToken)
 
-	return fullToken, nil
+	return &token, fullToken, nil
 }

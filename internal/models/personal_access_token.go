@@ -11,6 +11,7 @@ type PersonalAccessToken struct {
 	Name          string     `json:"name"`
 	Token         string     `json:"token"`
 	Abilities     string     `json:"abilities"`
+	ParentID      uint       `json:"parent_id"`
 	LastUsedAt    *time.Time `json:"last_used_at"`
 	ExpiresAt     *time.Time `json:"expires_at"`
 	CreatedAt     time.Time  `json:"created_at"`
