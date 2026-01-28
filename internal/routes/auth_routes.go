@@ -19,4 +19,5 @@ func AuthRoutes(api fiber.Router, db *gorm.DB) {
 	auth.Post("/logout", middleware.Auth(db), authController.Logout)
 	auth.Post("/change-password", middleware.Auth(db), authController.ChangePassword)
 	auth.Put("/profile", middleware.Auth(db), authController.UpdateProfile)
+	auth.Post("/refresh", authController.RefreshToken)
 }

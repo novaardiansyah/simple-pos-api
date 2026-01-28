@@ -13,12 +13,15 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"novaardiansyah/simple-pos/internal/dto"
 	"novaardiansyah/simple-pos/internal/models"
 	"novaardiansyah/simple-pos/internal/repositories"
 	"novaardiansyah/simple-pos/pkg/utils"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +35,8 @@ type AuthService interface {
 	Login(c *fiber.Ctx) error
 	ChangePassword(c *fiber.Ctx) error
 	UpdateProfile(user *models.User, name, email string) error
+	RefreshToken(c *fiber.Ctx) error
+	ValidateToken(tokenString string) (*models.PersonalAccessToken, string, error)
 }
 
 type authService struct {
@@ -167,6 +172,55 @@ func (s *authService) UpdateProfile(user *models.User, name, email string) error
 	}
 
 	return nil
+}
+
+func (s *authService) RefreshToken(c *fiber.Ctx) error {
+	refreshToken := c.Cookies("refresh_token")
+	if refreshToken == "" {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Refresh token not found")
+	}
+
+	token, _, err := s.ValidateToken(refreshToken)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Refresh token not found")
+	}
+
+	return utils.SuccessResponse(c, "Refresh token found", fiber.Map{
+		"refreshToken": refreshToken,
+		"token":        token,
+	})
+}
+
+func (s *authService) ValidateToken(tokenString string) (*models.PersonalAccessToken, string, error) {
+	parts := strings.SplitN(tokenString, "|", 2)
+
+	if len(parts) != 2 {
+		return nil, "", errors.New("Unauthorized: Invalid token format (e1)")
+	}
+
+	tokenIDStr := parts[0]
+	plainToken := parts[1]
+
+	tokenID, err := strconv.ParseUint(tokenIDStr, 10, 64)
+
+	if err != nil {
+		return nil, "", errors.New("Unauthorized: Invalid token format (e2)")
+	}
+
+	hash := sha256.Sum256([]byte(plainToken))
+	hashedToken := hex.EncodeToString(hash[:])
+
+	token, err := s.TokenRepo.FindByIDAndHashedToken(tokenID, hashedToken)
+
+	if err != nil {
+		return nil, "", errors.New("Unauthorized: Invalid token")
+	}
+
+	if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
+		return nil, "", errors.New("Unauthorized: Token expired")
+	}
+
+	return token, plainToken, nil
 }
 
 func (s *authService) generateRefreshToken(user *models.User) (*models.PersonalAccessToken, string, error) {
