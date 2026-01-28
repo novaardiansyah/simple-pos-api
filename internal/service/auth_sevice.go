@@ -1,3 +1,15 @@
+/*
+ * Project Name: service
+ * File: auth_sevice.go
+ * Created Date: Tuesday January 27th 2026
+ *
+ * Author: Nova Ardiansyah admin@novaardiansyah.id
+ * Website: https://novaardiansyah.id
+ * MIT License: https://github.com/novaardiansyah/simple-pos-api/blob/main/LICENSE
+ *
+ * Copyright (c) 2026 Nova Ardiansyah, Org
+ */
+
 package service
 
 import (
@@ -6,17 +18,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"novaardiansyah/simple-pos/internal/dto"
 	"novaardiansyah/simple-pos/internal/models"
 	"novaardiansyah/simple-pos/internal/repositories"
+	"novaardiansyah/simple-pos/pkg/utils"
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/thedevsaddam/govalidator"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type AuthService interface {
-	Login(email, password string) (string, error)
+	Login(c *fiber.Ctx) error
 	ChangePassword(user *models.User, currentPassword, newPassword string) (string, error)
 	UpdateProfile(user *models.User, name, email string) error
 }
@@ -33,18 +49,37 @@ func NewAuthService(db *gorm.DB) AuthService {
 	}
 }
 
-func (s *authService) Login(email, password string) (string, error) {
-	user, err := s.UserRepo.FindByEmail(email)
-	if err != nil {
-		return "", errors.New("invalid_credentials")
+func (s *authService) Login(c *fiber.Ctx) error {
+	data := make(map[string]interface{})
+
+	rules := govalidator.MapData{
+		"email":    []string{"required", "email"},
+		"password": []string{"required", "min:6"},
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		return "", errors.New("invalid_credentials")
+	errs := utils.ValidateJSON(c, &data, rules)
+	if errs != nil {
+		return utils.ValidationError(c, errs)
 	}
 
-	return s.generateAuthToken(user, 7)
+	user, err := s.UserRepo.FindByEmail(data["email"].(string))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data["password"].(string)))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
+	}
+
+	token, err := s.generateAuthToken(user, 7)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
+	}
+
+	return utils.SuccessResponse(c, "Login successful", dto.LoginResponse{
+		Token: token,
+	})
 }
 
 func (s *authService) ChangePassword(user *models.User, currentPassword, newPassword string) (string, error) {

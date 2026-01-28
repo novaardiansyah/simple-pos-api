@@ -1,3 +1,15 @@
+/*
+ * Project Name: routes
+ * File: routes.go
+ * Created Date: Tuesday January 27th 2026
+ *
+ * Author: Nova Ardiansyah admin@novaardiansyah.id
+ * Website: https://novaardiansyah.id
+ * MIT License: https://github.com/novaardiansyah/simple-pos-api/blob/main/LICENSE
+ *
+ * Copyright (c) 2026 Nova Ardiansyah, Org
+ */
+
 package routes
 
 import (

@@ -50,33 +50,7 @@ func NewAuthController(db *gorm.DB) *AuthController {
 // @Failure 422 {object} utils.ValidationErrorResponse
 // @Router /auth/login [post]
 func (ctrl *AuthController) Login(c *fiber.Ctx) error {
-	data := make(map[string]interface{})
-
-	rules := govalidator.MapData{
-		"email":    []string{"required", "email"},
-		"password": []string{"required", "min:6"},
-	}
-
-	errs := utils.ValidateJSON(c, &data, rules)
-	if errs != nil {
-		return utils.ValidationError(c, errs)
-	}
-
-	token, err := ctrl.AuthService.Login(
-		data["email"].(string),
-		data["password"].(string),
-	)
-
-	if err != nil {
-		if err.Error() == "invalid_credentials" {
-			return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid credentials")
-		}
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create token")
-	}
-
-	return utils.SuccessResponse(c, "Login successful", dto.LoginResponse{
-		Token: token,
-	})
+	return ctrl.AuthService.Login(c)
 }
 
 // Logout godoc
