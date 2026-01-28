@@ -185,9 +185,18 @@ func (s *authService) RefreshToken(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Refresh token not found")
 	}
 
-	return utils.SuccessResponse(c, "Refresh token found", fiber.Map{
-		"refreshToken": refreshToken,
-		"token":        token,
+	user, err := s.UserRepo.FindByID(token.TokenableID)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Refresh token not found")
+	}
+
+	_, fullToken, err := s.generateAuthToken(user, token)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
+	}
+
+	return utils.SuccessResponse(c, "Refresh token successfully", dto.LoginResponse{
+		Token: fullToken,
 	})
 }
 
