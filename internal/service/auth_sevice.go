@@ -13,9 +13,6 @@
 package service
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"novaardiansyah/simple-pos/internal/dto"
@@ -82,15 +79,7 @@ func (s *authService) Login(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshTokenPlain,
-		Expires:  time.Now().Add(7 * 24 * time.Hour),
-		HTTPOnly: true,
-		Secure:   false,
-		Path:     "/api/auth/refresh",
-		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+	s.setCookieRefreshToken(c, refreshTokenPlain)
 
 	return utils.SuccessResponse(c, "Login successful", dto.LoginResponse{
 		Token: fullToken,
@@ -150,15 +139,7 @@ func (s *authService) ChangePassword(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshTokenPlain,
-		Expires:  time.Now().Add(7 * 24 * time.Hour),
-		HTTPOnly: true,
-		Secure:   false,
-		Path:     "/api/auth/refresh",
-		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+	s.setCookieRefreshToken(c, refreshTokenPlain)
 
 	return utils.SuccessResponse(c, "Password changed successfully", dto.LoginResponse{
 		Token: fullToken,
@@ -189,64 +170,37 @@ func (s *authService) UpdateProfile(user *models.User, name, email string) error
 }
 
 func (s *authService) generateRefreshToken(user *models.User) (*models.PersonalAccessToken, string, error) {
-	length := 40
-	bytes := make([]byte, length)
-	rand.Read(bytes)
+	token, plainToken := models.NewAccessToken(user.ID, (7 * 24 * time.Hour), nil)
 
-	plainToken := hex.EncodeToString(bytes)[:length]
-	hash := sha256.Sum256([]byte(plainToken))
-	hashedToken := hex.EncodeToString(hash[:])
-
-	expiration := time.Now().AddDate(0, 0, 7)
-
-	token := models.PersonalAccessToken{
-		TokenableType: "App\\Models\\User",
-		TokenableID:   user.ID,
-		Name:          "refresh_token",
-		Token:         hashedToken,
-		Abilities:     "[\"*\"]",
-		ExpiresAt:     &expiration,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}
-
-	if err := s.TokenRepo.Create(&token); err != nil {
+	if err := s.TokenRepo.Create(token); err != nil {
 		return nil, "", errors.New("token_creation_failed")
 	}
 
 	fullToken := fmt.Sprintf("%d|%s", token.ID, plainToken)
 
-	return &token, fullToken, nil
+	return token, fullToken, nil
 }
 
 func (s *authService) generateAuthToken(user *models.User, refreshToken *models.PersonalAccessToken) (*models.PersonalAccessToken, string, error) {
-	length := 40
-	bytes := make([]byte, length)
-	rand.Read(bytes)
+	token, plainToken := models.NewAccessToken(user.ID, (time.Hour), &refreshToken.ID)
 
-	plainToken := hex.EncodeToString(bytes)[:length]
-	hash := sha256.Sum256([]byte(plainToken))
-	hashedToken := hex.EncodeToString(hash[:])
-
-	expiration := time.Now().Add(time.Hour)
-
-	token := models.PersonalAccessToken{
-		TokenableType: "App\\Models\\User",
-		TokenableID:   user.ID,
-		Name:          "auth_token",
-		Token:         hashedToken,
-		Abilities:     "[\"*\"]",
-		ExpiresAt:     &expiration,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-		ParentID:      refreshToken.ID,
-	}
-
-	if err := s.TokenRepo.Create(&token); err != nil {
+	if err := s.TokenRepo.Create(token); err != nil {
 		return nil, "", errors.New("token_creation_failed")
 	}
 
 	fullToken := fmt.Sprintf("%d|%s", token.ID, plainToken)
 
-	return &token, fullToken, nil
+	return token, fullToken, nil
+}
+
+func (s *authService) setCookieRefreshToken(c *fiber.Ctx, refreshToken string) {
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false,
+		Path:     "/api/auth/refresh",
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
 }

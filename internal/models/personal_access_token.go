@@ -1,6 +1,7 @@
 package models
 
 import (
+	"novaardiansyah/simple-pos/pkg/auth"
 	"time"
 )
 
@@ -11,7 +12,7 @@ type PersonalAccessToken struct {
 	Name          string     `json:"name"`
 	Token         string     `json:"token"`
 	Abilities     string     `json:"abilities"`
-	ParentID      uint       `json:"parent_id"`
+	ParentID      *uint      `json:"parent_id"`
 	LastUsedAt    *time.Time `json:"last_used_at"`
 	ExpiresAt     *time.Time `json:"expires_at"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -20,4 +21,24 @@ type PersonalAccessToken struct {
 
 func (PersonalAccessToken) TableName() string {
 	return "personal_access_tokens"
+}
+
+func NewAccessToken(userID uint, duration time.Duration, parentID *uint) (*PersonalAccessToken, string) {
+	rawToken, hashedToken := auth.GenerateSecureString(32)
+	expiresAt := time.Now().Add(duration)
+
+	name := "auth_token"
+	if parentID != nil {
+		name = "refresh_token"
+	}
+
+	return &PersonalAccessToken{
+		Name:          name,
+		TokenableID:   userID,
+		TokenableType: "App\\Models\\User",
+		Token:         hashedToken,
+		ParentID:      parentID,
+		ExpiresAt:     &expiresAt,
+		Abilities:     "[\"*\"]",
+	}, rawToken
 }
