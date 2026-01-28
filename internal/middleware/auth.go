@@ -28,7 +28,7 @@ func Auth(db *gorm.DB) fiber.Handler {
 			return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: Invalid token format")
 		}
 
-		token, _, err := authService.ValidateToken(tokenString)
+		token, _, err := authService.ValidateToken(tokenString, "auth_token")
 
 		if err != nil {
 			return utils.ErrorResponse(c, fiber.StatusUnauthorized, err.Error())

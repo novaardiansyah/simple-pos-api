@@ -36,7 +36,7 @@ type AuthService interface {
 	ChangePassword(c *fiber.Ctx) error
 	UpdateProfile(user *models.User, name, email string) error
 	RefreshToken(c *fiber.Ctx) error
-	ValidateToken(tokenString string) (*models.PersonalAccessToken, string, error)
+	ValidateToken(tokenString string, tokenType string) (*models.PersonalAccessToken, string, error)
 }
 
 type authService struct {
@@ -180,7 +180,7 @@ func (s *authService) RefreshToken(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Refresh token not found")
 	}
 
-	token, _, err := s.ValidateToken(refreshToken)
+	token, _, err := s.ValidateToken(refreshToken, "refresh_token")
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Refresh token not found")
 	}
@@ -200,7 +200,7 @@ func (s *authService) RefreshToken(c *fiber.Ctx) error {
 	})
 }
 
-func (s *authService) ValidateToken(tokenString string) (*models.PersonalAccessToken, string, error) {
+func (s *authService) ValidateToken(tokenString string, tokenType string) (*models.PersonalAccessToken, string, error) {
 	parts := strings.SplitN(tokenString, "|", 2)
 
 	if len(parts) != 2 {
@@ -219,7 +219,7 @@ func (s *authService) ValidateToken(tokenString string) (*models.PersonalAccessT
 	hash := sha256.Sum256([]byte(plainToken))
 	hashedToken := hex.EncodeToString(hash[:])
 
-	token, err := s.TokenRepo.FindByIDAndHashedToken(tokenID, hashedToken)
+	token, err := s.TokenRepo.FindByIDAndHashedToken(tokenID, hashedToken, tokenType)
 
 	if err != nil {
 		return nil, "", errors.New("Unauthorized: Invalid token")

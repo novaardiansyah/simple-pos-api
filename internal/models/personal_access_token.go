@@ -27,9 +27,9 @@ func NewAccessToken(userID uint, duration time.Duration, parentID *uint) (*Perso
 	rawToken, hashedToken := auth.GenerateSecureString(32)
 	expiresAt := time.Now().Add(duration)
 
-	name := "auth_token"
+	name := "refresh_token"
 	if parentID != nil {
-		name = "refresh_token"
+		name = "auth_token"
 	}
 
 	return &PersonalAccessToken{

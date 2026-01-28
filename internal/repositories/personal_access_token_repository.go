@@ -14,10 +14,17 @@ func NewPersonalAccessTokenRepository(db *gorm.DB) *PersonalAccessTokenRepositor
 	return &PersonalAccessTokenRepository{db: db}
 }
 
-func (repo PersonalAccessTokenRepository) FindByIDAndHashedToken(id uint64, hashedToken string) (*models.PersonalAccessToken, error) {
+func (repo PersonalAccessTokenRepository) FindByIDAndHashedToken(id uint64, hashedToken string, tokenType string) (*models.PersonalAccessToken, error) {
 	var token models.PersonalAccessToken
 
-	result := repo.db.Where("id = ? AND token = ?", id, hashedToken).First(&token)
+	query := repo.db.Where("id = ? AND token = ?", id, hashedToken)
+
+	if tokenType != "" {
+		query = query.Where("name = ?", tokenType)
+	}
+
+	result := query.First(&token)
+
 	if result.Error != nil {
 		return nil, result.Error
 	}
