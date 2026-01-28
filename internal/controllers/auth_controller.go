@@ -165,12 +165,10 @@ func (ctrl *AuthController) UpdateProfile(c *fiber.Ctx) error {
 
 // RefreshToken godoc
 // @Summary Refresh token
-// @Description Refresh token with current token
+// @Description Refresh token with your httpOnly cookie 'refresh_token'
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Security BearerAuth
-// @Param refresh-token body dto.RefreshTokenRequest true "Refresh token"
 // @Success 200 {object} utils.Response{data=dto.LoginResponse}
 // @Failure 401 {object} utils.UnauthorizedResponse
 // @Failure 422 {object} utils.ValidationErrorResponse
