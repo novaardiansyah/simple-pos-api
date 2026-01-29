@@ -45,3 +45,4 @@ logs/golang.log
 # ! Ignore images
 public/images/*/*
 !public/images/*/.gitkeep
+!public/images/markdown/*
