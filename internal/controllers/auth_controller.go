@@ -91,7 +91,6 @@ func (ctrl *AuthController) ValidateToken(c *fiber.Ctx) error {
 	return utils.SuccessResponse(c, "Token is valid", dto.ValidateTokenResponse{
 		User: dto.ValidateTokenUserResponse{
 			ID:   user.ID,
-			Code: user.Code,
 			Name: user.Name,
 		},
 	})

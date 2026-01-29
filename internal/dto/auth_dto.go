@@ -8,7 +8,6 @@ type ChangePasswordRequest struct {
 
 type ValidateTokenUserResponse struct {
 	ID   uint   `json:"id"`
-	Code string `json:"code"`
 	Name string `json:"name"`
 }
 
