@@ -18,14 +18,15 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type UserController struct {
-	repo *repositories.UserRepository
+	UserRepo *repositories.UserRepository
 }
 
-func NewUserController(repo *repositories.UserRepository) *UserController {
-	return &UserController{repo: repo}
+func NewUserController(db *gorm.DB) *UserController {
+	return &UserController{UserRepo: repositories.NewUserRepository(db)}
 }
 
 // Index godoc
@@ -51,12 +52,12 @@ func (ctrl *UserController) Index(c *fiber.Ctx) error {
 		perPage = 15
 	}
 
-	total, err := ctrl.repo.Count()
+	total, err := ctrl.UserRepo.Count()
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to count users")
 	}
 
-	users, err := ctrl.repo.FindAllPaginated(page, perPage)
+	users, err := ctrl.UserRepo.FindAllPaginated(page, perPage)
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve users")
 	}
@@ -82,7 +83,29 @@ func (ctrl *UserController) Show(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user ID")
 	}
 
-	user, err := ctrl.repo.FindByID(uint(id))
+	user, err := ctrl.UserRepo.FindByID(uint(id))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusNotFound, "User not found")
+	}
+
+	return utils.SuccessResponse(c, "User retrieved successfully", user)
+}
+
+// Me godoc
+// @Summary Get current user details
+// @Description Get detailed information about the currently authenticated user
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {object} utils.Response{data=UserSwagger}
+// @Failure 400 {object} utils.SimpleErrorResponse
+// @Failure 401 {object} utils.UnauthorizedResponse
+// @Router /users/me [get]
+// @Security BearerAuth
+func (ctrl *UserController) Me(c *fiber.Ctx) error {
+	userId := c.Locals("user_id").(uint)
+	user, err := ctrl.UserRepo.FindByID(userId)
+
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusNotFound, "User not found")
 	}

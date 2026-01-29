@@ -8,13 +8,9 @@ definitions:
         type: string
       email:
         type: string
-      has_allow_notification:
-        type: boolean
       id:
         type: integer
       name:
-        type: string
-      notification_token:
         type: string
       updated_at:
         type: string
@@ -69,8 +65,6 @@ definitions:
     type: object
   dto.ValidateTokenUserResponse:
     properties:
-      code:
-        type: string
       id:
         type: integer
       name:
@@ -419,6 +413,36 @@ paths:
       security:
       - BearerAuth: []
       summary: Get user details
+      tags:
+      - users
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controllers.UserSwagger'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.SimpleErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.UnauthorizedResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user details
       tags:
       - users
 securityDefinitions:
